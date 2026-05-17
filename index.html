@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CASREP — NDP Medical Command</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Courier+Prime:wght@400;700&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#030A12;color:#B8CCE0;font-family:'DM Sans',sans-serif;min-height:100vh}
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-thumb{background:#1C3347;border-radius:2px}
+  input::placeholder{color:#1C3A52}
+  select option{background:#050D14}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+
+  /* ── Base inputs ── */
+  .inp{background:#050D14;border:1px solid #1C3347;border-radius:4px;color:#B8CCE0;padding:5px 8px;font-size:0.82rem;font-family:'Courier Prime',monospace;width:100%;outline:none}
+  .inp:focus{border-color:#2E86C1}
+  .lbl{display:block;font-size:0.6rem;color:#2E5A7A;text-transform:uppercase;letter-spacing:0.1em;font-family:'Courier Prime',monospace;margin-bottom:3px}
+  .btn{cursor:pointer;border-radius:4px;font-family:'Courier Prime',monospace;font-size:0.78rem;font-weight:700;padding:6px 14px;border:1px solid}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .grid9{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
+  .card{background:#07111C;border-radius:6px;padding:10px 13px;margin-bottom:8px;animation:fadeIn 0.2s ease}
+  .hidden{display:none}
+  .modal-bg{position:fixed;inset:0;z-index:999;background:rgba(2,8,14,0.92);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+  .modal{background:#07111C;border-radius:8px;padding:24px;width:480px;max-width:94vw}
+  .sidebar-box{background:#050D14;border:1px solid #0D2133;border-radius:8px;padding:12px;margin-bottom:10px}
+  .sidebar-title{font-family:'Courier Prime',monospace;font-size:0.6rem;color:#1A4060;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px}
+  .tag{border-radius:3px;padding:1px 8px;font-family:'Courier Prime',monospace;font-size:0.7rem;font-weight:700}
+  .quick-btn{border-radius:4px;padding:3px 12px;cursor:pointer;font-family:'Courier Prime',monospace;font-size:0.72rem;font-weight:700;border:1px solid}
+  .fld{margin-bottom:0}
+  textarea.inp{resize:vertical;min-height:50px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ LOGIN ═══════════════════════════════ -->
+<div id="loginScreen">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center">
+    <div style="width:540px;max-width:95vw">
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:3.2rem;color:#2E86C1;letter-spacing:0.2em;line-height:1">CASREP</div>
+        <div style="font-family:'Courier Prime',monospace;font-size:0.68rem;color:#1A4060;letter-spacing:0.15em;margin-top:6px">NATIONAL DAY PARADE · MEDICAL COMMAND · LIVE TRACKER</div>
+      </div>
+      <div style="background:#07111C;border:1px solid #1C3347;border-radius:10px;padding:24px">
+        <div id="loginStatus" style="font-family:'Courier Prime',monospace;font-size:0.65rem;color:#2E86C1;margin-bottom:14px;text-align:center">Connecting to Firebase…</div>
+
+        <div class="lbl" style="margin-bottom:8px">⬡ Command Posts</div>
+        <div class="grid2" style="margin-bottom:16px" id="cpButtons"></div>
+
+        <div class="lbl" style="margin-bottom:8px">✚ Medical Posts</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px" id="mpButtons"></div>
+
+        <button id="enterBtn" onclick="enterStation()" disabled style="width:100%;padding:11px 0;background:#050D14;border:1px solid #1C3347;color:#1C3347;border-radius:6px;cursor:not-allowed;font-family:'Courier Prime',monospace;font-size:0.82rem;font-weight:700;letter-spacing:0.1em">
+          SELECT A STATION TO ENTER
+        </button>
+      </div>
+      <div style="text-align:center;margin-top:10px;font-family:'Courier Prime',monospace;font-size:0.6rem;color:#0D2133">
+        Real-time sync via Firebase · Data persists permanently · All stations share live data
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ MAIN APP ═══════════════════════════════ -->
+<div id="mainApp" class="hidden">
+
+  <!-- Top bar -->
+  <div id="topbar" style="background:#030A12;border-bottom:1px solid #0D2133;padding:7px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;backdrop-filter:blur(8px)">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;color:#2E86C1;letter-spacing:0.15em">CASREP</span>
+      <div id="stationBadge" style="border-radius:4px;padding:2px 10px;border:1px solid"></div>
+      <span id="stationNote" style="font-family:'Courier Prime',monospace;font-size:0.62rem;color:#1A4060"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span id="topDate" style="font-family:'Courier Prime',monospace;font-size:0.65rem;color:#1A4060"></span>
+      <div style="display:flex;align-items:center;gap:5px">
+        <div id="syncDot" style="width:7px;height:7px;border-radius:50%;background:#1DB954;box-shadow:0 0 6px #1DB954;transition:all 0.3s"></div>
+        <span id="syncLabel" style="font-family:'Courier Prime',monospace;font-size:0.65rem;color:#1DB954">CONNECTING…</span>
+      </div>
+      <button onclick="toggleLog()" class="btn" style="background:transparent;border-color:#1C3347;color:#4A8AB0;font-size:0.68rem;padding:3px 10px">LOG <span id="logCount"></span></button>
+      <button onclick="exitStation()" class="btn" style="background:#1A0808;border-color:#441111;color:#994444;font-size:0.68rem;padding:3px 10px">⏏ Exit</button>
+    </div>
+  </div>
+
+  <div style="max-width:1320px;margin:0 auto;padding:12px 16px">
+
+    <!-- Stats row -->
+    <div class="grid9" style="margin-bottom:12px" id="statsRow"></div>
+
+    <!-- Post strips -->
+    <div style="display:flex;gap:6px;margin-bottom:12px" id="postStrips"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 290px;gap:12px">
+
+      <!-- Main panel -->
+      <div>
+        <!-- Filters -->
+        <div style="display:flex;gap:7px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+          <select class="inp" id="fPost" onchange="renderCasualties()" style="width:auto">
+            <option value="ALL">All Posts</option>
+            <option>MP1</option><option>MP2</option><option>MP3</option><option>MP4</option><option>MP5</option>
+          </select>
+          <select class="inp" id="fPri" onchange="renderCasualties()" style="width:auto">
+            <option value="ALL">All Priority</option>
+            <option value="P1">P1 — Immediate</option>
+            <option value="P2">P2 — Delayed</option>
+            <option value="P3">P3 — Minor</option>
+            <option value="P4">P4 — Expectant</option>
+          </select>
+          <select class="inp" id="fSt" onchange="renderCasualties()" style="width:auto">
+            <option value="ALL">All Status</option>
+            <option>At Post</option>
+            <option>Discharged from Post</option>
+            <option>Evacuated</option>
+            <option>Arrived at Hospital</option>
+          </select>
+          <span id="countLabel" style="font-family:'Courier Prime',monospace;font-size:0.65rem;color:#1A4060;margin-left:auto"></span>
+          <button onclick="toggleAddForm()" class="btn" id="addToggleBtn" style="background:#0A2A40;border-color:#1A4A6A;color:#4A90D9;font-size:0.68rem;padding:4px 10px">▲ Hide Form</button>
+        </div>
+
+        <!-- Add form -->
+        <div id="addForm" style="background:#050D14;border:1px solid #1C3347;border-radius:8px;padding:14px;margin-bottom:14px">
+          <div style="font-family:'Courier Prime',monospace;font-size:0.7rem;color:#2E86C1;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.12em">⊕ Register New Casualty</div>
+          <div class="grid4" style="gap:8px 12px;margin-bottom:8px">
+            <div class="fld"><label class="lbl">NRIC / FIN</label><input class="inp" id="fNric" placeholder="S1234567A" maxlength="9" oninput="this.value=this.value.toUpperCase()"/></div>
+            <div class="fld"><label class="lbl">Full Name</label><input class="inp" id="fName"/></div>
+            <div class="fld"><label class="lbl">Age</label><input class="inp" id="fAge" type="number" min="0" max="120"/></div>
+            <div class="fld">
+              <label class="lbl">Gender</label>
+              <select class="inp" id="fGender"><option value="">—</option><option>Male</option><option>Female</option></select>
+            </div>
+            <div class="fld">
+              <label class="lbl">Medical Post</label>
+              <select class="inp" id="fPost2"><option>MP1</option><option>MP2</option><option>MP3</option><option>MP4</option><option>MP5</option></select>
+            </div>
+            <div class="fld">
+              <label class="lbl">Priority</label>
+              <select class="inp" id="fPri2">
+                <option value="P1">P1 — Immediate</option>
+                <option value="P2">P2 — Delayed</option>
+                <option value="P3" selected>P3 — Minor</option>
+                <option value="P4">P4 — Expectant</option>
+              </select>
+            </div>
+            <div class="fld" style="grid-column:span 2">
+              <label class="lbl">Chief Complaint</label>
+              <input class="inp" id="fComplaint" list="complaintList" placeholder="Select or type..."/>
+              <datalist id="complaintList">
+                <option>Heat exhaustion</option><option>Heat stroke</option><option>Syncope / Collapse</option>
+                <option>Laceration</option><option>Fracture / Suspected fracture</option><option>Chest pain</option>
+                <option>Shortness of breath</option><option>Abdominal pain</option><option>Hypoglycaemia</option>
+                <option>Allergic reaction / Anaphylaxis</option><option>Seizure</option><option>Head injury / Trauma</option>
+                <option>Eye injury</option><option>Sprain / Strain</option><option>Dehydration</option>
+                <option>Nausea / Vomiting</option><option>Abrasion</option><option>Blister</option>
+              </datalist>
+            </div>
+          </div>
+          <div class="fld" style="margin-bottom:10px"><label class="lbl">Notes / Initial Observations</label><input class="inp" id="fNotes"/></div>
+          <button onclick="registerCasualty()" class="btn" style="width:100%;background:#0A2A40;border-color:#2E86C1;color:#5DADE2;padding:7px 0;letter-spacing:0.1em">REGISTER CASUALTY</button>
+        </div>
+
+        <!-- Casualty list -->
+        <div id="casualtyList"></div>
+      </div>
+
+      <!-- Sidebar -->
+      <div>
+        <div class="sidebar-box" id="stationPanel">
+          <div class="sidebar-title">Stations</div>
+          <div id="stationList"></div>
+        </div>
+        <div class="sidebar-box">
+          <div class="sidebar-title">Priority Reference</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="width:28px;height:14px;border-radius:3px;background:#C0392B;display:flex;align-items:center;justify-content:center"><span style="font-family:'Courier Prime',monospace;font-size:0.6rem;color:#fff;font-weight:700">P1</span></div><span style="font-family:'Courier Prime',monospace;font-size:0.7rem;color:#7A9AB8">Immediate</span></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="width:28px;height:14px;border-radius:3px;background:#D35400;display:flex;align-items:center;justify-content:center"><span style="font-family:'Courier Prime',monospace;font-size:0.6rem;color:#fff;font-weight:700">P2</span></div><span style="font-family:'Courier Prime',monospace;font-size:0.7rem;color:#7A9AB8">Delayed</span></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="width:28px;height:14px;border-radius:3px;background:#1E8449;display:flex;align-items:center;justify-content:center"><span style="font-family:'Courier Prime',monospace;font-size:0.6rem;color:#fff;font-weight:700">P3</span></div><span style="font-family:'Courier Prime',monospace;font-size:0.7rem;color:#7A9AB8">Minor</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:14px;border-radius:3px;background:#424949;display:flex;align-items:center;justify-content:center"><span style="font-family:'Courier Prime',monospace;font-size:0.6rem;color:#AAB7B8;font-weight:700">P4</span></div><span style="font-family:'Courier Prime',monospace;font-size:0.7rem;color:#7A9AB8">Expectant</span></div>
+        </div>
+        <div class="sidebar-box">
+          <div class="sidebar-title">Hospital Destinations</div>
+          <div id="hospList"></div>
+        </div>
+        <div class="sidebar-box hidden" id="logBox">
+          <div class="sidebar-title">Shared Activity Log</div>
+          <div id="logList" style="max-height:300px;overflow-y:auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ EVAC MODAL ═══════════ -->
+<div id="evacModal" class="modal-bg hidden">
+  <div class="modal" id="evacModalInner">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;color:#9B59B6;letter-spacing:0.12em">🚑 EVACUATE CASUALTY</div>
+        <div id="evacSubtitle" style="font-family:'Courier Prime',monospace;font-size:0.7rem;color:#4A7090;margin-top:2px"></div>
+      </div>
+      <button onclick="closeEvacModal()" style="background:none;border:none;color:#4A7090;cursor:pointer;font-size:1rem">✕</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="lbl">Select Destination Hospital *</label>
+      <div id="hospButtons" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px"></div>
+      <input class="inp" id="evacHospInput" list="evacHospList" placeholder="Or type another destination..."/>
+      <datalist id="evacHospList"></datalist>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="lbl">Evacuation Time</label>
+      <input class="inp" id="evacTime"/>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeEvacModal()" class="btn" style="flex:1;background:#0D1E2E;border-color:#1C3347;color:#4A7090">Cancel</button>
+      <button onclick="confirmEvac()" class="btn" id="evacConfirmBtn" style="flex:2;background:#1A0A30;border-color:#9B59B6;color:#C39BD3">🚑 CONFIRM EVACUATION</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ARRIVAL MODAL ═══════════ -->
+<div id="arrivalModal" class="modal-bg hidden">
+  <div class="modal">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;color:#E67E22;letter-spacing:0.12em;margin-bottom:6px">🏥 CONFIRM HOSPITAL ARRIVAL</div>
+    <div id="arrivalSubtitle" style="font-family:'Courier Prime',monospace;font-size:0.7rem;color:#4A7090;margin-bottom:16px"></div>
+    <div style="margin-bottom:14px">
+      <label class="lbl">Time Arrived at Hospital</label>
+      <input class="inp" id="arrivalTime"/>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeArrivalModal()" class="btn" style="flex:1;background:#0D1E2E;border-color:#1C3347;color:#4A7090">Cancel</button>
+      <button onclick="confirmArrival()" class="btn" style="flex:2;background:#200E00;border-color:#E67E22;color:#E67E22" id="arrivalConfirmBtn">✓ CONFIRM ARRIVAL</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ EDIT MODAL ═══════════ -->
+<div id="editModal" class="modal-bg hidden">
+  <div class="modal" style="width:580px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;color:#2E86C1;letter-spacing:0.12em">✎ EDIT CASUALTY RECORD</div>
+      <button onclick="closeEditModal()" style="background:none;border:none;color:#4A7090;cursor:pointer;font-size:1rem">✕</button>
+    </div>
+    <div class="grid3" style="gap:8px 12px;margin-bottom:8px">
+      <div><label class="lbl">NRIC / FIN</label><input class="inp" id="eNric" maxlength="9" oninput="this.value=this.value.toUpperCase()" placeholder="S1234567A"/></div>
+      <div><label class="lbl">Full Name</label><input class="inp" id="eName"/></div>
+      <div><label class="lbl">Age</label><input class="inp" id="eAge" type="number" min="0" max="120"/></div>
+      <div><label class="lbl">Gender</label><select class="inp" id="eGender"><option value="">—</option><option>Male</option><option>Female</option></select></div>
+      <div><label class="lbl">Priority</label>
+        <select class="inp" id="ePri">
+          <option value="P1">P1 — Immediate</option><option value="P2">P2 — Delayed</option>
+          <option value="P3">P3 — Minor</option><option value="P4">P4 — Expectant</option>
+        </select>
+      </div>
+      <div><label class="lbl">Medical Post</label>
+        <select class="inp" id="ePost"><option>MP1</option><option>MP2</option><option>MP3</option><option>MP4</option><option>MP5</option></select>
+      </div>
+      <div style="grid-column:1/-1"><label class="lbl">Chief Complaint</label>
+        <input class="inp" id="eComplaint" list="complaintList2"/>
+        <datalist id="complaintList2">
+          <option>Heat exhaustion</option><option>Heat stroke</option><option>Syncope / Collapse</option>
+          <option>Laceration</option><option>Fracture / Suspected fracture</option><option>Chest pain</option>
+          <option>Shortness of breath</option><option>Abdominal pain</option><option>Hypoglycaemia</option>
+          <option>Allergic reaction / Anaphylaxis</option><option>Seizure</option><option>Head injury / Trauma</option>
+        </datalist>
+      </div>
+      <div><label class="lbl">Status</label>
+        <select class="inp" id="eStatus" onchange="toggleEditFields()">
+          <option>At Post</option><option>Discharged from Post</option><option>Evacuated</option><option>Arrived at Hospital</option>
+        </select>
+      </div>
+      <div id="eDischargeWrap" class="hidden"><label class="lbl">Discharge Time</label><input class="inp" id="eDischargeTime" placeholder="HH:MM"/></div>
+      <div id="eEvacWrap" class="hidden"><label class="lbl">Evacuation Time</label><input class="inp" id="eEvacTime" placeholder="HH:MM"/></div>
+      <div id="eHospWrap" class="hidden" style="grid-column:1/-1"><label class="lbl">Destination Hospital</label>
+        <input class="inp" id="eHospital" list="editHospList"/>
+        <datalist id="editHospList"></datalist>
+      </div>
+      <div id="eArrivalWrap" class="hidden"><label class="lbl">Arrival at Hospital Time</label><input class="inp" id="eArrivalTime" placeholder="HH:MM"/></div>
+      <div style="grid-column:1/-1"><label class="lbl">Notes / Treatment</label><input class="inp" id="eNotes"/></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button onclick="closeEditModal()" class="btn" style="flex:1;background:#0D1E2E;border-color:#1C3347;color:#4A7090">Cancel</button>
+      <button onclick="saveEdit()" class="btn" style="flex:2;background:#0A3A1A;border-color:#1DB954;color:#1DB954">✓ SAVE RECORD</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ SCRIPT ═══════════════════════════════ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, push, set, update, remove, onValue, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ── Firebase init ─────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCeOaKOFuekdzCdHddsVSGB_i-m84AGYiM",
+  authDomain: "ndp-2026.firebaseapp.com",
+  databaseURL: "https://ndp-2026-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ndp-2026",
+  storageBucket: "ndp-2026.firebasestorage.app",
+  messagingSenderId: "72680761221",
+  appId: "1:72680761221:web:f18ae7d3224e464df606ec"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+// ── Constants ─────────────────────────────────────────────────────────────
+const STATIONS = [
+  { id:"CP1", label:"Command Post 1", role:"command", color:"#F1C40F" },
+  { id:"CP2", label:"Command Post 2", role:"command", color:"#E67E22" },
+  { id:"MP1", label:"Medical Post 1", role:"post",    color:"#2E86C1" },
+  { id:"MP2", label:"Medical Post 2", role:"post",    color:"#2E86C1" },
+  { id:"MP3", label:"Medical Post 3", role:"post",    color:"#2E86C1" },
+  { id:"MP4", label:"Medical Post 4", role:"post",    color:"#2E86C1" },
+  { id:"MP5", label:"Medical Post 5", role:"post",    color:"#2E86C1" },
+];
+const PRIORITY = {
+  P1:{ label:"P1 — Immediate", bg:"#C0392B", text:"#fff", border:"#922B21", glow:"#C0392B44" },
+  P2:{ label:"P2 — Delayed",   bg:"#D35400", text:"#fff", border:"#A04000", glow:"#D3540044" },
+  P3:{ label:"P3 — Minor",     bg:"#1E8449", text:"#fff", border:"#196F3D", glow:"#1E844944" },
+  P4:{ label:"P4 — Expectant", bg:"#424949", text:"#AAB7B8",border:"#616A6B",glow:"#42494922"},
+};
+const HOSPITALS = [
+  "SGH (Singapore General Hospital)",
+  "TTSH (Tan Tock Seng Hospital)",
+  "NUH (National University Hospital)",
+  "CGH (Changi General Hospital)",
+  "KTPH (Khoo Teck Puat Hospital)",
+  "SKH (Sengkang General Hospital)",
+  "NTFGH (Ng Teng Fong General Hospital)",
+  "AH (Alexandra Hospital)",
+  "KKH (KK Women's and Children's Hospital)",
+];
+
+// ── State ─────────────────────────────────────────────────────────────────
+let myStation = null;
+let casualties = {};   // keyed by Firebase push ID
+let logs = [];
+let selectedEvacId = null;
+let selectedArrivalId = null;
+let editingId = null;
+let selectedStation = null;
+let showLog = false;
+let showAddForm = true;
+let elapsedTimers = {};
+
+const nowT = () => new Date().toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit",hour12:false});
+const todayStr = () => new Date().toLocaleDateString("en-SG",{day:"2-digit",month:"short",year:"numeric"});
+
+// ── Login screen setup ────────────────────────────────────────────────────
+function buildLogin() {
+  document.getElementById("loginStatus").textContent = "✓ Connected to Firebase — Select your station";
+  document.getElementById("loginStatus").style.color = "#1DB954";
+
+  const cpDiv = document.getElementById("cpButtons");
+  const mpDiv = document.getElementById("mpButtons");
+
+  STATIONS.filter(s=>s.role==="command").forEach(s=>{
+    const b = document.createElement("button");
+    b.id = "ls-"+s.id;
+    b.style.cssText = `background:#050D14;border:1px solid #1C3347;border-radius:6px;padding:12px 16px;cursor:pointer;text-align:left;transition:all 0.15s;width:100%`;
+    b.innerHTML = `<div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;color:${s.color};letter-spacing:0.12em">${s.id}</div><div style="font-family:'Courier Prime',monospace;font-size:0.68rem;color:#4A7090">${s.label}</div><div style="font-family:'Courier Prime',monospace;font-size:0.58rem;color:#1A4060;margin-top:2px">Full access · All posts</div>`;
+    b.onclick = () => selectStation(s.id, s.color);
+    cpDiv.appendChild(b);
+  });
+
+  STATIONS.filter(s=>s.role==="post").forEach(s=>{
+    const b = document.createElement("button");
+    b.id = "ls-"+s.id;
+    b.style.cssText = `background:#050D14;border:1px solid #1C3347;border-radius:6px;padding:10px 8px;cursor:pointer;text-align:center;transition:all 0.15s;width:100%`;
+    b.innerHTML = `<div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;color:${s.color};letter-spacing:0.1em">${s.id}</div><div style="font-family:'Courier Prime',monospace;font-size:0.6rem;color:#4A7090">Medical Post</div>`;
+    b.onclick = () => selectStation(s.id, s.color);
+    mpDiv.appendChild(b);
+  });
+}
+
+window.selectStation = function(id, color) {
+  selectedStation = id;
+  document.querySelectorAll("[id^='ls-']").forEach(b=>{
+    b.style.border="1px solid #1C3347"; b.style.background="#050D14";
+  });
+  const btn = document.getElementById("ls-"+id);
+  btn.style.border = `1.5px solid ${color}`;
+  btn.style.background = "#0A2A3A";
+  const enter = document.getElementById("enterBtn");
+  enter.disabled = false;
+  enter.style.cssText = `width:100%;padding:11px 0;background:#0A3A5A;border:1px solid #2E86C1;color:#5DADE2;border-radius:6px;cursor:pointer;font-family:'Courier Prime',monospace;font-size:0.82rem;font-weight:700;letter-spacing:0.1em`;
+  enter.textContent = `ENTER ${id}`;
+};
+
+window.enterStation = function() {
+  if (!selectedStation) return;
+  myStation = STATIONS.find(s=>s.id===selectedStation);
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("mainApp").classList.remove("hidden");
+  initApp();
+};
+
+window.exitStation = function() {
+  // Clear timers
+  Object.values(elapsedTimers).forEach(clearInterval);
+  elapsedTimers = {};
+  myStation = null;
+  document.getElementById("mainApp").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("hidden");
+  selectedStation = null;
+  document.getElementById("enterBtn").disabled = true;
+  document.getElementById("enterBtn").textContent = "SELECT A STATION TO ENTER";
+};
+
+// ── App init ──────────────────────────────────────────────────────────────
+function initApp() {
+  const isCommand = myStation.role==="command";
+
+  // Top bar
+  const badge = document.getElementById("stationBadge");
+  badge.textContent = myStation.label;
+  badge.style.cssText = `border-radius:4px;padding:2px 10px;background:${myStation.color}22;border:1px solid ${myStation.color}55;font-family:'Courier Prime',monospace;font-size:0.75rem;color:${myStation.color};font-weight:700`;
+  document.getElementById("stationNote").textContent = isCommand ? "Full access · All posts" : `Editing: ${myStation.id} only · Viewing: all posts`;
+  document.getElementById("topDate").textContent = todayStr();
+
+  // Default post for add form
+  if (!isCommand) {
+    document.getElementById("fPost2").value = myStation.id;
+  }
+
+  // Hospital list in sidebar
+  const hl = document.getElementById("hospList");
+  HOSPITALS.forEach(h=>{
+    const d = document.createElement("div");
+    d.style.cssText = "font-family:'Courier Prime',monospace;font-size:0.66rem;color:#4A7090;margin-bottom:4px;border-bottom:1px solid #0A1A27;padding-bottom:3px";
+    d.textContent = h;
+    hl.appendChild(d);
+  });
+
+  // Populate evac hospital datalists
+  ["evacHospList","editHospList"].forEach(id=>{
+    const dl = document.getElementById(id);
+    HOSPITALS.forEach(h=>{ const o=document.createElement("option"); o.value=h; dl.appendChild(o); });
+  });
+
+  // Build evac hospital buttons
+  const hb = document.getElementById("hospButtons");
+  HOSPITALS.forEach(h=>{
+    const abbr = h.split(" ")[0];
+    const full = h.replace(/^[^ ]+ /,"").replace(/[()]/g,"");
+    const b = document.createElement("button");
+    b.className = "hosp-btn";
+    b.dataset.hosp = h;
+    b.style.cssText = "background:#050D14;border:1px solid #1C3347;border-radius:5px;padding:7px 10px;cursor:pointer;text-align:left;transition:all 0.1s;width:100%";
+    b.innerHTML = `<div style="font-family:'Courier Prime',monospace;font-size:0.78rem;font-weight:700;color:#5D8AA8">${abbr}</div><div style="font-family:'Courier Prime',monospace;font-size:0.6rem;color:#2E5A7A;margin-top:1px">${full}</div>`;
+    b.onclick = () => selectHospBtn(h);
+    hb.appendChild(b);
+  });
+
+  // Clock
+  setInterval(()=>{ document.getElementById("topDate").textContent = todayStr()+" "+nowT(); }, 15000);
+  document.getElementById("topDate").textContent = todayStr()+" "+nowT();
+
+  // Firebase listeners
+  setSyncState("connecting");
+
+  onValue(ref(db,"casualties"), snap=>{
+    casualties = snap.val() || {};
+    setSyncState("live");
+    renderAll();
+  });
+
+  onValue(ref(db,"log"), snap=>{
+    const raw = snap.val() || {};
+    logs = Object.values(raw).sort((a,b)=>b.ts-a.ts).slice(0,100);
+    renderLog();
+  });
+}
+
+// ── Sync indicator ────────────────────────────────────────────────────────
+function setSyncState(state) {
+  const dot = document.getElementById("syncDot");
+  const lbl = document.getElementById("syncLabel");
+  if (state==="connecting") { dot.style.background="#F1C40F"; dot.style.boxShadow="0 0 6px #F1C40F"; lbl.style.color="#F1C40F"; lbl.textContent="CONNECTING…"; }
+  else if (state==="live")  { dot.style.background="#1DB954"; dot.style.boxShadow="0 0 6px #1DB954"; lbl.style.color="#1DB954"; lbl.textContent="LIVE · "+nowT(); }
+}
+
+// ── Register casualty ─────────────────────────────────────────────────────
+window.registerCasualty = async function() {
+  const nric = document.getElementById("fNric").value.trim();
+  const name = document.getElementById("fName").value.trim();
+  const age  = document.getElementById("fAge").value.trim();
+  const gender = document.getElementById("fGender").value;
+  const post = document.getElementById("fPost2").value;
+  const pri  = document.getElementById("fPri2").value;
+  const complaint = document.getElementById("fComplaint").value.trim();
+  const notes = document.getElementById("fNotes").value.trim();
+
+  const c = { nric, name, age, gender, post, priority:pri, complaint, notes,
+    status:"At Post", timeIn:nowT(), createdAt:Date.now(),
+    registeredBy:myStation.id, dischargeTime:"", evacuationTime:"", arrivalTime:"", hospital:"" };
+
+  const newRef = push(ref(db,"casualties"));
+  await set(newRef, c);
+  await addLog(`[${post}] New ${pri} ${nric||name||"casualty"} — ${complaint||"no complaint"}`);
+
+  // Clear form
+  ["fNric","fName","fAge","fComplaint","fNotes"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("fGender").value="";
+  document.getElementById("fPri2").value="P3";
+};
+
+// ── Update casualty ───────────────────────────────────────────────────────
+async function updateCasualty(id, updates) {
+  await update(ref(db,`casualties/${id}`), updates);
+  const c = {...casualties[id],...updates};
+  await addLog(`#${id.slice(-5)} → ${updates.status||c.status}${updates.hospital?" → "+updates.hospital.split(" ")[0]:""}${updates.arrivalTime?" (arrived "+updates.arrivalTime+")":""}`);
+}
+
+window.deleteCasualty = async function(id) {
+  const c = casualties[id];
+  if (!confirm(`Remove casualty ${c?.nric||c?.name||"#"+id.slice(-5)}?`)) return;
+  await remove(ref(db,`casualties/${id}`));
+  await addLog(`${c?.nric||c?.name||"Casualty"} removed by ${myStation.id}`);
+};
+
+// ── Log ───────────────────────────────────────────────────────────────────
+async function addLog(msg) {
+  const entry = { msg, by:myStation.id, ts:Date.now(), t:nowT() };
+  await push(ref(db,"log"), entry);
+}
+
+// ── Evac modal ────────────────────────────────────────────────────────────
+window.openEvacModal = function(id) {
+  selectedEvacId = id;
+  const c = casualties[id];
+  const pr = PRIORITY[c.priority];
+  document.getElementById("evacModalInner").style.borderTop = `4px solid ${pr.bg}`;
+  document.getElementById("evacSubtitle").textContent = `${c.nric||"No NRIC"} · ${c.name||"Unknown"} · ${c.priority}`;
+  document.getElementById("evacTime").value = nowT();
+  document.getElementById("evacHospInput").value = "";
+  document.querySelectorAll(".hosp-btn").forEach(b=>{ b.style.background="#050D14"; b.style.border="1px solid #1C3347"; b.querySelector("div").style.color="#5D8AA8"; });
+  document.getElementById("evacModal").classList.remove("hidden");
+};
+window.closeEvacModal = () => document.getElementById("evacModal").classList.add("hidden");
+
+window.selectHospBtn = function(h) {
+  document.getElementById("evacHospInput").value = h;
+  document.querySelectorAll(".hosp-btn").forEach(b=>{
+    const sel = b.dataset.hosp===h;
+    b.style.background = sel?"#2A1A40":"#050D14";
+    b.style.border = sel?"1.5px solid #9B59B6":"1px solid #1C3347";
+    b.querySelector("div").style.color = sel?"#C39BD3":"#5D8AA8";
+  });
+};
+
+window.confirmEvac = async function() {
+  const hospital = document.getElementById("evacHospInput").value.trim();
+  const evacTime = document.getElementById("evacTime").value.trim();
+  if (!hospital) { alert("Please select a hospital destination."); return; }
+  await updateCasualty(selectedEvacId, { status:"Evacuated", hospital, evacuationTime:evacTime });
+  closeEvacModal();
+};
+
+// ── Arrival modal ─────────────────────────────────────────────────────────
+window.openArrivalModal = function(id) {
+  selectedArrivalId = id;
+  const c = casualties[id];
+  document.getElementById("arrivalSubtitle").textContent = `${c.nric||"No NRIC"} · ${c.name||"Unknown"} · ${c.hospital||"Unknown hospital"}`;
+  document.getElementById("arrivalConfirmBtn").textContent = `✓ ARRIVED AT ${(c.hospital||"HOSPITAL").split(" ")[0]}`;
+  document.getElementById("arrivalTime").value = nowT();
+  document.getElementById("arrivalModal").classList.remove("hidden");
+};
+window.closeArrivalModal = () => document.getElementById("arrivalModal").classList.add("hidden");
+window.confirmArrival = async function() {
+  const t = document.getElementById("arrivalTime").value.trim();
+  await updateCasualty(selectedArrivalId, { status:"Arrived at Hospital", arrivalTime:t });
+  closeArrivalModal();
+};
+
+// ── Edit modal ────────────────────────────────────────────────────────────
+window.openEditModal = function(id) {
+  editingId = id;
+  const c = casualties[id];
+  document.getElementById("eNric").value      = c.nric||"";
+  document.getElementById("eName").value      = c.name||"";
+  document.getElementById("eAge").value       = c.age||"";
+  document.getElementById("eGender").value    = c.gender||"";
+  document.getElementById("ePri").value       = c.priority;
+  document.getElementById("ePost").value      = c.post;
+  document.getElementById("eComplaint").value = c.complaint||"";
+  document.getElementById("eStatus").value    = c.status;
+  document.getElementById("eDischargeTime").value = c.dischargeTime||"";
+  document.getElementById("eEvacTime").value  = c.evacuationTime||"";
+  document.getElementById("eHospital").value  = c.hospital||"";
+  document.getElementById("eArrivalTime").value = c.arrivalTime||"";
+  document.getElementById("eNotes").value     = c.notes||"";
+  toggleEditFields();
+  document.getElementById("editModal").classList.remove("hidden");
+};
+window.closeEditModal = () => document.getElementById("editModal").classList.add("hidden");
+
+window.toggleEditFields = function() {
+  const s = document.getElementById("eStatus").value;
+  document.getElementById("eDischargeWrap").classList.toggle("hidden", s!=="Discharged from Post");
+  document.getElementById("eEvacWrap").classList.toggle("hidden",      s!=="Evacuated"&&s!=="Arrived at Hospital");
+  document.getElementById("eHospWrap").classList.toggle("hidden",      s!=="Evacuated"&&s!=="Arrived at Hospital");
+  document.getElementById("eArrivalWrap").classList.toggle("hidden",   s!=="Arrived at Hospital");
+};
+
+window.saveEdit = async function() {
+  const updates = {
+    nric:     document.getElementById("eNric").value.trim(),
+    name:     document.getElementById("eName").value.trim(),
+    age:      document.getElementById("eAge").value.trim(),
+    gender:   document.getElementById("eGender").value,
+    priority: document.getElementById("ePri").value,
+    post:     document.getElementById("ePost").value,
+    complaint:document.getElementById("eComplaint").value.trim(),
+    status:   document.getElementById("eStatus").value,
+    dischargeTime: document.getElementById("eDischargeTime").value.trim(),
+    evacuationTime:document.getElementById("eEvacTime").value.trim(),
+    hospital: document.getElementById("eHospital").value.trim(),
+    arrivalTime: document.getElementById("eArrivalTime").value.trim(),
+    notes:    document.getElementById("eNotes").value.trim(),
+  };
+  await updateCasualty(editingId, updates);
+  closeEditModal();
+};
+
+// ── Discharge quick action ────────────────────────────────────────────────
+window.dischargeQuick = async function(id) {
+  await updateCasualty(id, { status:"Discharged from Post", dischargeTime:nowT() });
+};
+
+// ── Render ────────────────────────────────────────────────────────────────
+function renderAll() { renderStats(); renderPostStrips(); renderCasualties(); renderStationList(); }
+
+window.renderCasualties = function() {
+  const fPost = document.getElementById("fPost")?.value||"ALL";
+  const fPri  = document.getElementById("fPri")?.value||"ALL";
+  const fSt   = document.getElementById("fSt")?.value||"ALL";
+  const isCommand = myStation.role==="command";
+
+  const list = Object.entries(casualties)
+    .map(([id,c])=>({...c,_id:id}))
+    .filter(c=>
+      (fPost==="ALL"||c.post===fPost) &&
+      (fPri==="ALL"||c.priority===fPri) &&
+      (fSt==="ALL"||c.status===fSt)
+    )
+    .sort((a,b)=>{
+      const po = {P1:0,P2:1,P3:2,P4:3};
+      return (po[a.priority]||9)-(po[b.priority]||9) || b.createdAt-a.createdAt;
+    });
+
+  const total = Object.keys(casualties).length;
+  document.getElementById("countLabel").textContent = `${list.length}/${total}`;
+
+  const container = document.getElementById("casualtyList");
+  // Clear old timers
+  Object.values(elapsedTimers).forEach(clearInterval);
+  elapsedTimers = {};
+
+  if (list.length===0) {
+    container.innerHTML = `<div style="text-align:center;padding:40px;color:#0D2133;font-family:'Courier Prime',monospace;font-size:0.8rem">${total===0?"No casualties registered.":"No casualties match the filter."}</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(c=>{
+    const pr = PRIORITY[c.priority];
+    const id = c._id;
+    const canEdit = isCommand || c.post===myStation.id;
+    const isDischarged = c.status==="Discharged from Post";
+    const isEvacuated  = c.status==="Evacuated"||c.status==="Arrived at Hospital";
+    const isArrived    = c.status==="Arrived at Hospital";
+
+    const statusCfg = {
+      "At Post":              "background:#0A2A40;color:#2E86C1;border:1px solid #1A4A6A",
+      "Discharged from Post": "background:#0A2A18;color:#1DB954;border:1px solid #1A5030",
+      "Evacuated":            "background:#2A1A40;color:#9B59B6;border:1px solid #4A2A60",
+      "Arrived at Hospital":  "background:#2A1A10;color:#E67E22;border:1px solid #5A3010",
+    }[c.status]||"";
+
+    const editBtns = canEdit ? `
+      <button onclick="openEditModal('${id}')" style="background:#0D1E2E;border:1px solid #1A4060;color:#4A8AB0;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.7rem;font-family:'Courier Prime',monospace">✎ Edit</button>
+      <button onclick="deleteCasualty('${id}')" style="background:#1A0808;border:1px solid #441111;color:#994444;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.7rem">✕</button>
+    ` : "";
+
+    const quickBtns = canEdit ? `
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        ${c.status==="At Post" ? `
+          <button onclick="dischargeQuick('${id}')" class="quick-btn" style="background:#1DB95418;border-color:#1DB95466;color:#1DB954">✓ Discharge from Post</button>
+          <button onclick="openEvacModal('${id}')" class="quick-btn" style="background:#9B59B618;border-color:#9B59B666;color:#9B59B6">🚑 Evacuate to Hospital</button>
+        ` : ""}
+        ${c.status==="Evacuated" ? `
+          <button onclick="openArrivalModal('${id}')" class="quick-btn" style="background:#E67E2218;border-color:#E67E2266;color:#E67E22">🏥 Confirm Hospital Arrival</button>
+        ` : ""}
+      </div>
+    ` : "";
+
+    return `
+      <div class="card" style="border:1px solid ${pr.border};border-left:5px solid ${pr.bg};box-shadow:0 0 14px ${pr.glow};opacity:${isDischarged?0.75:1}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;flex-wrap:wrap;gap:4px">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <span style="font-family:'Courier Prime',monospace;font-weight:700;font-size:0.78rem;color:#8AAFC8">#${id.slice(-5)}</span>
+            <span class="tag" style="background:${pr.bg};color:${pr.text}">${c.priority}</span>
+            <span class="tag" style="background:#0A2030;color:#4A90D9;border:1px solid #1A4060">${c.post}</span>
+            <span class="tag" style="${statusCfg}">${c.status}</span>
+            <span style="font-family:'Courier Prime',monospace;font-size:0.62rem;color:#2A4A6A">via ${c.registeredBy||"?"}</span>
+          </div>
+          <div style="display:flex;gap:5px;align-items:center">
+            ${c.status==="At Post"?`<span id="elapsed-${id}" style="font-family:'Courier Prime',monospace;font-size:0.75rem;color:#2E86C1">⏱ 00:00</span>`:""}
+            ${editBtns}
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 14px">
+          ${infoCell("NRIC / FIN", c.nric||"—")}
+          ${infoCell("Name", c.name||"—")}
+          ${infoCell("Age / Gender", [c.age&&`${c.age}y`,c.gender].filter(Boolean).join(" / ")||"—")}
+          ${infoCell("Complaint", c.complaint||"—")}
+          ${infoCell("Time In", c.timeIn)}
+          ${isDischarged ? infoCell("Discharged At", c.dischargeTime||"—","#1DB954") : ""}
+          ${isEvacuated  ? infoCell("Evacuated At",  c.evacuationTime||"—","#9B59B6") : ""}
+          ${isEvacuated  ? infoCell("Hospital",      c.hospital||"—","#C39BD3") : ""}
+          ${isArrived    ? infoCell("Arrived At",    c.arrivalTime||"—","#E67E22") : ""}
+          ${c.notes ? `<div style="grid-column:1/-1">${infoCell("Notes",c.notes)}</div>` : ""}
+        </div>
+        ${quickBtns}
+      </div>`;
+  }).join("");
+
+  // Start elapsed timers for "At Post" casualties
+  list.filter(c=>c.status==="At Post").forEach(c=>{
+    const el = document.getElementById(`elapsed-${c._id}`);
+    if (!el) return;
+    const tick = ()=>{
+      const s = Math.floor((Date.now()-c.createdAt)/1000);
+      const m = Math.floor(s/60), sec = s%60;
+      const str = `⏱ ${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+      if (el) { el.textContent = str; el.style.color = m>=20?"#FF4136":"#2E86C1"; el.style.fontWeight = m>=20?700:400; }
+    };
+    tick();
+    elapsedTimers[c._id] = setInterval(tick, 1000);
+  });
+};
+
+function infoCell(label, val, hi) {
+  return `<div><span style="font-size:0.6rem;color:#2E5A7A;text-transform:uppercase;letter-spacing:0.1em;font-family:'Courier Prime',monospace">${label} </span><span style="font-size:0.8rem;color:${hi||"#B8CCE0"}">${val}</span></div>`;
+}
+
+function renderStats() {
+  const C = Object.values(casualties);
+  const byP = k => C.filter(c=>c.priority===k).length;
+  const stats = [
+    ["Total",     C.length,                         "#4A90D9"],
+    ["P1 Immed.", byP("P1"),                         "#C0392B"],
+    ["P2 Delayed",byP("P2"),                         "#D35400"],
+    ["P3 Minor",  byP("P3"),                         "#1E8449"],
+    ["P4 Expect.",byP("P4"),                         "#5D6D7E"],
+    ["At Post",   C.filter(c=>c.status==="At Post").length,              "#2E86C1"],
+    ["Discharged",C.filter(c=>c.status==="Discharged from Post").length, "#1DB954"],
+    ["Evacuated", C.filter(c=>c.status==="Evacuated").length,            "#9B59B6"],
+    ["At Hospital",C.filter(c=>c.status==="Arrived at Hospital").length, "#E67E22"],
+  ];
+  document.getElementById("statsRow").innerHTML = stats.map(([l,v,c])=>`
+    <div style="text-align:center;padding:7px 6px;background:#05111C;border-radius:6px;border:1px solid ${c}33">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.7rem;font-weight:700;color:${c};line-height:1">${v}</div>
+      <div style="font-family:'Courier Prime',monospace;font-size:0.56rem;color:#2E5A7A;text-transform:uppercase;letter-spacing:0.07em;margin-top:2px">${l}</div>
+    </div>`).join("");
+}
+
+function renderPostStrips() {
+  const C = Object.values(casualties);
+  const strips = ["MP1","MP2","MP3","MP4","MP5"].map(p=>{
+    const pc = C.filter(c=>c.post===p);
+    const p1 = pc.filter(c=>c.priority==="P1").length;
+    const p2 = pc.filter(c=>c.priority==="P2").length;
+    const active = pc.filter(c=>c.status==="At Post").length;
+    const isMyPost = p===myStation.id;
+    const curFilter = document.getElementById("fPost")?.value||"ALL";
+    const sel = curFilter===p;
+    return `<div onclick="filterPost('${p}')" style="flex:1;background:${sel?"#0A2A40":"#050D14"};border:${sel?"1px solid #2E86C1":isMyPost?"1px solid #1A4060":"1px solid #0D2133"};border-radius:6px;padding:8px;cursor:pointer;transition:all 0.15s;min-width:0">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;color:${sel?"#5DADE2":isMyPost?"#4A90D9":"#2E5A7A"};letter-spacing:0.1em">${p}${isMyPost&&myStation.role!=="command"?'<span style="font-size:0.5rem;color:#4A90D9;margin-left:3px">●</span>':""}</div>
+      <div style="font-family:'Courier Prime',monospace;font-size:0.68rem;color:#8AAFC8">${pc.length} · ${active} active</div>
+      <div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">
+        ${p1>0?`<span style="background:#C0392B;color:#fff;border-radius:3px;padding:0 5px;font-size:0.6rem;font-family:'Courier Prime',monospace">P1:${p1}</span>`:""}
+        ${p2>0?`<span style="background:#D35400;color:#fff;border-radius:3px;padding:0 5px;font-size:0.6rem;font-family:'Courier Prime',monospace">P2:${p2}</span>`:""}
+      </div>
+    </div>`;
+  }).join("");
+  document.getElementById("postStrips").innerHTML = strips;
+}
+
+window.filterPost = function(p) {
+  const sel = document.getElementById("fPost");
+  sel.value = sel.value===p ? "ALL" : p;
+  renderAll();
+};
+
+function renderStationList() {
+  const C = Object.values(casualties);
+  document.getElementById("stationList").innerHTML = STATIONS.map(s=>{
+    const count = C.filter(c=>c.registeredBy===s.id).length;
+    const isMe = s.id===myStation.id;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;padding:3px 6px;background:${isMe?"#0A1E30":"transparent"};border-radius:4px;border:${isMe?"1px solid #1A4060":"none"}">
+      <span style="font-family:'Courier Prime',monospace;font-size:0.72rem;color:${isMe?s.color:"#4A7090"};font-weight:${isMe?700:400}">${s.id}${isMe?" ← YOU":""}</span>
+      <span style="font-family:'Courier Prime',monospace;font-size:0.65rem;color:#1A4060">${count} reg.</span>
+    </div>`;
+  }).join("");
+}
+
+function renderLog() {
+  const count = logs.length;
+  document.getElementById("logCount").textContent = count>0?`[${count}]`:"";
+  const box = document.getElementById("logList");
+  box.innerHTML = logs.length===0
+    ? `<div style="font-family:'Courier Prime',monospace;font-size:0.7rem;color:#0D2133">No activity yet.</div>`
+    : logs.map(l=>`
+      <div style="margin-bottom:5px;border-bottom:1px solid #0A1A27;padding-bottom:4px">
+        <span style="font-family:'Courier Prime',monospace;font-size:0.6rem;color:#1A4060">${l.t} </span>
+        <span style="font-family:'Courier Prime',monospace;font-size:0.62rem;color:#2E86C1;font-weight:700">[${l.by}] </span>
+        <span style="font-family:'Courier Prime',monospace;font-size:0.65rem;color:#5A8AAA">${l.msg}</span>
+      </div>`).join("");
+}
+
+window.toggleLog = function() {
+  showLog = !showLog;
+  document.getElementById("logBox").classList.toggle("hidden", !showLog);
+};
+
+window.toggleAddForm = function() {
+  showAddForm = !showAddForm;
+  document.getElementById("addForm").classList.toggle("hidden", !showAddForm);
+  document.getElementById("addToggleBtn").textContent = showAddForm?"▲ Hide Form":"▼ New Casualty";
+};
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+buildLogin();
+
+// Test Firebase connection
+try {
+  onValue(ref(db,".info/connected"), snap=>{
+    const connected = snap.val();
+    const status = document.getElementById("loginStatus");
+    if (status) {
+      if (connected) { status.textContent="✓ Connected to Firebase — Select your station"; status.style.color="#1DB954"; }
+      else           { status.textContent="⚠ Connecting to Firebase…"; status.style.color="#F1C40F"; }
+    }
+  });
+} catch(e) {}
+
+</script>
+</body>
+</html>
